@@ -20,11 +20,18 @@ const load = (url) => Rx.Observable.create(observer => {
 
   xhr.open("GET", url);
   xhr.send();
-}).retryWhen(retryStrategy(3, 1000));
+}).retryWhen(exponentialBackoff(3, 1000));
 
-const retryStrategy = (maxRetries, delay) =>
-  (errors) => errors
-    .delay(Rx.Observable.of(100, 1000, 3000));
+const backoffStrategy = (maxRetries, delayFunction) =>
+  attempts => attempts
+    .zip(Rx.Observable.range(1, maxRetries), (a, idx) => idx)
+    .delayWhen(idx => Rx.Observable.timer(delayFunction(idx)));
+
+const exponentialBackoff = (maxRetries, period) =>
+  backoffStrategy(maxRetries, idx => idx * idx * period);
+
+const incrementalBackoff = (maxRetries, period) =>
+  backoffStrategy(maxRetries, idx => idx * period);
 
 const clicks = Rx.Observable.fromEvent(button, 'click');
 
@@ -33,14 +40,3 @@ clicks.first().flatMap(c => load("dataa.json")).subscribe(
   error => console.log(error),
   () => console.log("Completed")
 );
-
-console.log("ok");
-
-const f = x => 1;
-
-var src = Rx.Observable.from([1,2,3]);
-
-src.delay(
-    //Rx.Observable.from([100,200,300])
-  f
-).subscribe(x => console.log(x));
